@@ -1,65 +1,113 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import Button from "../components/ui/Button";
+
+const FALLING_ITEMS = [
+  { emoji: "😊", top: "8%", left: "12%", delay: "0s", duration: "6s" },
+  { emoji: "🌟", top: "15%", left: "78%", delay: "1.2s", duration: "7s" },
+  { emoji: "💛", top: "5%", left: "45%", delay: "0.5s", duration: "5.5s" },
+  { emoji: "🌸", top: "20%", left: "60%", delay: "2s", duration: "8s" },
+  { emoji: "☀️", top: "3%", left: "30%", delay: "1s", duration: "6.5s" },
+  { emoji: "😢", top: "10%", left: "88%", delay: "0.8s", duration: "7.5s" },
+  { emoji: "⚡", top: "18%", left: "5%", delay: "1.5s", duration: "6s" },
+  { emoji: "🍀", top: "25%", left: "50%", delay: "0.3s", duration: "7s" },
+  { emoji: "💔", top: "6%", left: "70%", delay: "2.2s", duration: "5s" },
+];
+
+export default function HomePage() {
+  const router = useRouter();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [muted, setMuted] = useState(false);
+
+  useEffect(() => {
+    const audio = new Audio("/sounds/bg.mp3");
+    audio.loop = true;
+    audio.volume = 0.25;
+    audioRef.current = audio;
+    audio.play().catch(() => {});
+    return () => { audio.pause(); };
+  }, []);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    audioRef.current.muted = muted;
+  }, [muted]);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="relative min-h-screen overflow-hidden flex flex-col items-center justify-center bg-zinc-950">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,_#78350f22_0%,_transparent_70%)]" />
+
+      {FALLING_ITEMS.map((item) => (
+        <span
+          key={item.emoji + item.left}
+          className="absolute text-3xl select-none opacity-20 animate-bounce"
+          style={{
+            top: item.top,
+            left: item.left,
+            animationDelay: item.delay,
+            animationDuration: item.duration,
+          }}
+        >
+          {item.emoji}
+        </span>
+      ))}
+
+      <button
+        onClick={() => setMuted((m) => !m)}
+        className="absolute top-4 right-4 z-20 text-xl text-zinc-500 hover:text-zinc-300 transition-colors"
+        title={muted ? "Unmute" : "Mute"}
+      >
+        {muted ? "🔇" : "🔊"}
+      </button>
+
+      <div className="relative z-10 flex flex-col items-center gap-6 bg-zinc-900/80 backdrop-blur-md border border-zinc-800 rounded-3xl px-12 py-14 shadow-2xl max-w-md w-full mx-4">
+
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-6xl animate-bounce" style={{ animationDuration: "2s" }}>🧺</span>
+          <h1
+            className="text-5xl font-black tracking-tight text-amber-400 mt-2"
+            style={{ fontFamily: "'Georgia', serif", letterSpacing: "-0.02em" }}
+          >
+            Happiness
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-sm font-medium text-amber-600/70 uppercase tracking-widest mt-1">
+            Catch the good stuff
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+
+        <div className="w-16 h-px bg-zinc-700" />
+
+        <ul className="text-sm text-zinc-400 space-y-3 w-full">
+          <li className="flex items-center gap-3">
+            <span className="text-xl">😊</span>
+            <span>Catch positive items to score points</span>
+          </li>
+          <li className="flex items-center gap-3">
+            <span className="text-xl">😢</span>
+            <span>Negative items cost you a heart ❤️</span>
+          </li>
+          <li className="flex items-center gap-3">
+            <span className="text-xl">🔥</span>
+            <span>Chain catches for a <strong className="text-amber-400">combo multiplier</strong></span>
+          </li>
+          <li className="flex items-center gap-3">
+            <span className="text-xl">⚡</span>
+            <span>Game gets harder every <strong className="text-white">10 seconds</strong></span>
+          </li>
+          <li className="flex items-center gap-3">
+            <span className="text-xl">💀</span>
+            <span>Lose all 3 hearts and it's over</span>
+          </li>
+        </ul>
+
+        <div className="w-16 h-px bg-zinc-700" />
+
+        <Button onClick={() => router.push("/game")}>Start Game</Button>
+
+        <p className="text-xs text-zinc-600">Use ← → arrow keys or move your mouse</p>
+      </div>
+    </main>
   );
 }
