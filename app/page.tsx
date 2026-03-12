@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "../components/ui/Button";
+import { getHighScore } from "../lib/highscore";
 
 const FALLING_ITEMS = [
   { emoji: "😊", top: "8%", left: "12%", delay: "0s", duration: "6s" },
@@ -20,8 +21,10 @@ export default function HomePage() {
   const router = useRouter();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [muted, setMuted] = useState(false);
+  const [highScore, setHighScore] = useState(0);
 
   useEffect(() => {
+    setHighScore(getHighScore());
     const audio = new Audio("/sounds/bg.mp3");
     audio.loop = true;
     audio.volume = 0.25;
@@ -43,12 +46,7 @@ export default function HomePage() {
         <span
           key={item.emoji + item.left}
           className="absolute text-3xl select-none opacity-20 animate-bounce"
-          style={{
-            top: item.top,
-            left: item.left,
-            animationDelay: item.delay,
-            animationDuration: item.duration,
-          }}
+          style={{ top: item.top, left: item.left, animationDelay: item.delay, animationDuration: item.duration }}
         >
           {item.emoji}
         </span>
@@ -57,7 +55,6 @@ export default function HomePage() {
       <button
         onClick={() => setMuted((m) => !m)}
         className="absolute top-4 right-4 z-20 text-xl text-zinc-500 hover:text-zinc-300 transition-colors"
-        title={muted ? "Unmute" : "Mute"}
       >
         {muted ? "🔇" : "🔊"}
       </button>
@@ -66,15 +63,18 @@ export default function HomePage() {
 
         <div className="flex flex-col items-center gap-1">
           <span className="text-6xl animate-bounce" style={{ animationDuration: "2s" }}>🧺</span>
-          <h1
-            className="text-5xl font-black tracking-tight text-amber-400 mt-2"
-            style={{ fontFamily: "'Georgia', serif", letterSpacing: "-0.02em" }}
-          >
+          <h1 className="text-5xl font-black tracking-tight text-amber-400 mt-2" style={{ fontFamily: "'Georgia', serif", letterSpacing: "-0.02em" }}>
             Happiness
           </h1>
           <p className="text-sm font-medium text-amber-600/70 uppercase tracking-widest mt-1">
             Catch the good stuff
           </p>
+          {highScore > 0 && (
+            <div className="mt-2 flex items-center gap-2 bg-zinc-800 px-4 py-1.5 rounded-full">
+              <span className="text-sm">🏆</span>
+              <span className="text-sm font-bold text-yellow-400">Best: {highScore}</span>
+            </div>
+          )}
         </div>
 
         <div className="w-16 h-px bg-zinc-700" />
@@ -83,6 +83,10 @@ export default function HomePage() {
           <li className="flex items-center gap-3">
             <span className="text-xl">😊</span>
             <span>Catch positive items to score points</span>
+          </li>
+          <li className="flex items-center gap-3">
+            <span className="text-xl">⭐</span>
+            <span>Rare golden stars are worth <strong className="text-yellow-400">100 pts</strong></span>
           </li>
           <li className="flex items-center gap-3">
             <span className="text-xl">😢</span>
@@ -95,10 +99,6 @@ export default function HomePage() {
           <li className="flex items-center gap-3">
             <span className="text-xl">⚡</span>
             <span>Game gets harder every <strong className="text-white">10 seconds</strong></span>
-          </li>
-          <li className="flex items-center gap-3">
-            <span className="text-xl">💀</span>
-            <span>Lose all 3 hearts and it's over</span>
           </li>
         </ul>
 

@@ -3,6 +3,7 @@ export type ItemType = {
   label: string;
   points: number;
   positive: boolean;
+  rare?: boolean;
 };
 
 export const ITEMS: ItemType[] = [
@@ -19,3 +20,11 @@ export const ITEMS: ItemType[] = [
   { emoji: "💔", label: "Hurt", points: -20, positive: false },
   { emoji: "😤", label: "Anger", points: -15, positive: false },
 ];
+
+export const GOLDEN_ITEM: ItemType = {
+  emoji: "⭐",
+  label: "Golden Star",
+  points: 100,
+  positive: true,
+  rare: true,
+};

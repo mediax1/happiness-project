@@ -6,8 +6,9 @@ import Basket from "../../components/game/Basket";
 import FallingItem, { FallingItemData } from "../../components/game/FallingItem";
 import ScorePopup, { ScorePopupData } from "../../components/game/ScorePopup";
 import Hearts from "../../components/game/Hearts";
-import { ITEMS } from "../../lib/items";
+import { ITEMS, GOLDEN_ITEM } from "../../lib/items";
 import { useBgSound, useSfx } from "../../hooks/useSound";
+import { getHighScore, saveHighScore } from "../../lib/highscore";
 
 const BASKET_WIDTH = 72;
 const BASKET_HEIGHT = 48;
@@ -17,6 +18,8 @@ const TICK = 30;
 const MAX_LIVES = 3;
 const PLATFORM_HEIGHT = 12;
 const BOTTOM_OFFSET = 32;
+const GOLDEN_CHANCE = 0.02;
+const GOLDEN_INTERVAL = 30000;
 
 const LEVEL_COLORS = [
   "#78350f18",
@@ -45,6 +48,7 @@ function randomItem(multiplier: number): Omit<FallingItemData, "id" | "x" | "y">
   return {
     emoji: template.emoji,
     positive: template.positive,
+    rare: false,
     speed: (2.5 + Math.random() * 2) * multiplier,
   };
 }
@@ -63,13 +67,16 @@ export default function GamePage() {
   const [elapsed, setElapsed] = useState(0);
   const [running, setRunning] = useState(true);
   const [gameOver, setGameOver] = useState(false);
-  const [flash, setFlash] = useState<"positive" | "negative" | null>(null);
+  const [flash, setFlash] = useState<"positive" | "negative" | "golden" | null>(null);
+  const [isNewHighScore, setIsNewHighScore] = useState(false);
+  const [highScore, setHighScore] = useState(0);
 
   const basketXRef = useRef(0);
   const runningRef = useRef(true);
   const elapsedRef = useRef(0);
   const livesRef = useRef(MAX_LIVES);
   const comboRef = useRef(0);
+  const scoreRef = useRef(0);
   const spawnRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const caughtIds = useRef<Set<string>>(new Set());
 
@@ -77,11 +84,13 @@ export default function GamePage() {
   const playCatch = useSfx("/sounds/catch.mp3");
   const playMiss = useSfx("/sounds/miss.mp3");
 
+  useEffect(() => { setHighScore(getHighScore()); }, []);
   useEffect(() => { basketXRef.current = basketX; }, [basketX]);
   useEffect(() => { runningRef.current = running; }, [running]);
   useEffect(() => { elapsedRef.current = elapsed; }, [elapsed]);
   useEffect(() => { livesRef.current = lives; }, [lives]);
   useEffect(() => { comboRef.current = combo; }, [combo]);
+  useEffect(() => { scoreRef.current = score; }, [score]);
 
   useEffect(() => {
     if (!areaRef.current) return;
@@ -149,9 +158,13 @@ export default function GamePage() {
         if (!runningRef.current) return;
         const multiplier = getSpeedMultiplier(elapsedRef.current);
         const x = Math.random() * (areaWidth - ITEM_SIZE);
+        const isGolden = Math.random() < GOLDEN_CHANCE;
+        const template = isGolden ? GOLDEN_ITEM : null;
         setFallingItems((prev) => [
           ...prev,
-          { id: crypto.randomUUID(), x, y: 0, ...randomItem(multiplier) },
+          template
+            ? { id: crypto.randomUUID(), x, y: 0, emoji: template.emoji, positive: true, rare: true, speed: (2 + Math.random()) * multiplier }
+            : { id: crypto.randomUUID(), x, y: 0, ...randomItem(multiplier) },
         ]);
         scheduleSpawn();
       }, interval);
@@ -161,34 +174,49 @@ export default function GamePage() {
   }, [running, areaWidth]);
 
   useEffect(() => {
+    if (!running || areaWidth === 0) return;
+    const goldenId = setInterval(() => {
+      if (!runningRef.current) return;
+      const multiplier = getSpeedMultiplier(elapsedRef.current);
+      const x = Math.random() * (areaWidth - ITEM_SIZE);
+      setFallingItems((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), x, y: 0, emoji: GOLDEN_ITEM.emoji, positive: true, rare: true, speed: (1.5 + Math.random()) * multiplier },
+      ]);
+    }, GOLDEN_INTERVAL);
+    return () => clearInterval(goldenId);
+  }, [running, areaWidth]);
+
+  useEffect(() => {
     if (!running || areaHeight === 0) return;
     const catchY = areaHeight - BOTTOM_OFFSET - PLATFORM_HEIGHT - BASKET_HEIGHT;
-
     const id = setInterval(() => {
       setFallingItems((prev) => {
         const bx = basketXRef.current;
         const survived: FallingItemData[] = [];
-
         for (const item of prev) {
           const nextY = item.y + item.speed;
-
           if (caughtIds.current.has(item.id)) continue;
-
           const caught =
             nextY + ITEM_SIZE >= catchY &&
             nextY <= catchY + BASKET_HEIGHT &&
             item.x + ITEM_SIZE >= bx &&
             item.x <= bx + BASKET_WIDTH;
-
           if (caught) {
             caughtIds.current.add(item.id);
-            const template = ITEMS.find((i) => i.emoji === item.emoji);
-            const pts = template?.points ?? 0;
-
-            if (item.positive) {
+            if (item.rare) {
+              const newCombo = comboRef.current + 1;
+              comboRef.current = newCombo;
+              setCombo(newCombo);
+              setScore((s) => s + GOLDEN_ITEM.points);
+              setPopups((p) => [...p, { id: crypto.randomUUID(), x: item.x, y: catchY - 20, points: GOLDEN_ITEM.points, combo: undefined, golden: true }]);
+              setFlash("golden");
+              setTimeout(() => setFlash(null), 400);
+              playCatch();
+            } else if (item.positive) {
               const newCombo = comboRef.current + 1;
               const multiplier = newCombo >= 5 ? 3 : newCombo >= 3 ? 2 : 1;
-              const finalPts = pts * multiplier;
+              const finalPts = (ITEMS.find((i) => i.emoji === item.emoji)?.points ?? 10) * multiplier;
               comboRef.current = newCombo;
               setCombo(newCombo);
               setScore((s) => s + finalPts);
@@ -199,14 +227,18 @@ export default function GamePage() {
             } else {
               comboRef.current = 0;
               setCombo(0);
+              const pts = ITEMS.find((i) => i.emoji === item.emoji)?.points ?? -10;
               const newLives = livesRef.current - 1;
               livesRef.current = newLives;
               setLives(newLives);
-              setPopups((p) => [...p, { id: crypto.randomUUID(), x: item.x, y: catchY - 20, points: pts, combo: undefined }]);
+              setPopups((p) => [...p, { id: crypto.randomUUID(), x: item.x, y: catchY - 20, points: pts }]);
               setFlash("negative");
               setTimeout(() => setFlash(null), 300);
               playMiss();
               if (newLives <= 0) {
+                const isNew = saveHighScore(scoreRef.current);
+                setIsNewHighScore(isNew);
+                setHighScore(getHighScore());
                 setRunning(false);
                 setGameOver(true);
               }
@@ -243,11 +275,13 @@ export default function GamePage() {
       />
 
       <div className="relative z-10 flex flex-col w-full max-w-2xl h-[94vh] bg-zinc-900 rounded-2xl border border-zinc-800 shadow-2xl overflow-hidden">
-
         <header className="flex items-center justify-between px-6 py-3 border-b border-zinc-800/60 shrink-0">
           <div className="flex flex-col items-center">
             <span className="text-xs text-zinc-500 uppercase tracking-widest">Score</span>
             <span className="text-3xl font-black text-amber-400">{score}</span>
+            {highScore > 0 && (
+              <span className="text-xs text-zinc-600">best {highScore}</span>
+            )}
           </div>
 
           <div className="flex flex-col items-center gap-1">
@@ -264,12 +298,9 @@ export default function GamePage() {
         </header>
 
         <div ref={areaRef} className="relative flex-1 w-full overflow-hidden">
-          {flash === "positive" && (
-            <div className="absolute inset-0 bg-green-400/10 z-10 pointer-events-none" />
-          )}
-          {flash === "negative" && (
-            <div className="absolute inset-0 bg-red-500/20 z-10 pointer-events-none" />
-          )}
+          {flash === "positive" && <div className="absolute inset-0 bg-green-400/10 z-10 pointer-events-none" />}
+          {flash === "negative" && <div className="absolute inset-0 bg-red-500/20 z-10 pointer-events-none" />}
+          {flash === "golden" && <div className="absolute inset-0 bg-yellow-400/20 z-10 pointer-events-none" />}
 
           {fallingItems.map((item) => (
             <FallingItem key={item.id} item={item} />
@@ -283,13 +314,18 @@ export default function GamePage() {
 
           {gameOver && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950/80 backdrop-blur-sm z-20">
-              <div className="flex flex-col items-center gap-6 bg-zinc-900 border border-zinc-800 rounded-3xl px-12 py-14 shadow-2xl">
+              <div className="flex flex-col items-center gap-5 bg-zinc-900 border border-zinc-800 rounded-3xl px-12 py-12 shadow-2xl">
                 <span className="text-5xl">🧺</span>
                 <div className="flex flex-col items-center gap-1">
                   <span className="text-xs text-zinc-500 uppercase tracking-widest">Game Over</span>
                   <span className="text-6xl font-black text-amber-400">{score}</span>
-                  <span className="text-sm text-zinc-400">final score</span>
-                  <span className="text-xs text-zinc-600 mt-1">survived {elapsed}s · reached {levelLabel}</span>
+                  {isNewHighScore && (
+                    <span className="text-sm font-bold text-yellow-400 animate-bounce">🏆 New High Score!</span>
+                  )}
+                  {!isNewHighScore && highScore > 0 && (
+                    <span className="text-xs text-zinc-500">best: {highScore}</span>
+                  )}
+                  <span className="text-sm text-zinc-400 mt-1">survived {elapsed}s · reached {levelLabel}</span>
                 </div>
                 <div className="w-16 h-px bg-zinc-700" />
                 <div className="flex gap-3">

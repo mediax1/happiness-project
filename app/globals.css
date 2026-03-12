@@ -1,4 +1,7 @@
 @import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 @layer utilities {
   @keyframes score-popup {
@@ -7,5 +10,10 @@
   }
   .animate-score-popup {
     animation: score-popup 0.8s ease-out forwards;
+  }
+
+  @keyframes golden-pulse {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.15); }
   }
 }

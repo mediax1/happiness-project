@@ -8,6 +8,7 @@ export type ScorePopupData = {
   y: number;
   points: number;
   combo?: number;
+  golden?: boolean;
 };
 
 interface ScorePopupProps {
@@ -26,7 +27,7 @@ export default function ScorePopup({ popup, onDone }: ScorePopupProps) {
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
-  const isPositive = popup.points >= 0;
+  const color = popup.golden ? "#facc15" : popup.points >= 0 ? "#fbbf24" : "#f87171";
 
   return (
     <div
@@ -37,12 +38,14 @@ export default function ScorePopup({ popup, onDone }: ScorePopupProps) {
         transition: "opacity 0.25s ease, transform 0.5s ease",
         opacity: visible ? 1 : 0,
         transform: visible ? "translateY(0px) scale(1.3)" : "translateY(-44px) scale(1)",
+        filter: popup.golden ? "drop-shadow(0 0 6px #facc15)" : undefined,
       }}
     >
-      <span className="font-black text-base" style={{ color: isPositive ? "#fbbf24" : "#f87171" }}>
-        {isPositive ? `+${popup.points}` : `${popup.points}`}
+      <span className="font-black text-base" style={{ color }}>
+        {popup.points >= 0 ? `+${popup.points}` : `${popup.points}`}
       </span>
-      {popup.combo && popup.combo > 1 && (
+      {popup.golden && <span className="text-xs font-bold text-yellow-300">⭐ rare!</span>}
+      {!popup.golden && popup.combo && popup.combo > 1 && (
         <span className="text-xs font-bold text-orange-400">{popup.combo}x combo!</span>
       )}
     </div>
